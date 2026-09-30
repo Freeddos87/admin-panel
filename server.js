@@ -36,26 +36,45 @@ app.post('/login', (req, res) => {
 
   res.send(style + `<div class="box">
   <h1>🔑 Admin Dashboard</h1>
+
   <form method="POST" action="/generate">
-  <input name="days" type="number" min="1" value="30" required>
+  <input name="name" type="text" placeholder="Key Name e.g. NEERAJ" required>
+  <input name="days" type="number" min="0" value="30" placeholder="Days">
+  <input name="hours" type="number" min="0" max="23" value="0" placeholder="Hours">
   <button>GENERATE NEW KEY</button>
   </form>
+
   <h2>Keys</h2>
   ${keys.length ? keys.map((k,i) => `<div class="key">
   <b>${k.key}</b><br>
-  Expiry: ${k.expiry}<br>
+  Name: ${k.name}<br>
+  Expires: ${new Date(k.expiry).toLocaleString()}<br>
   Status: <span class="${k.active?'active':'disabled'}">${k.active?'ACTIVE':'DISABLED'}</span>
   </div>`).join('') : '<p>No keys generated.</p>'}
   </div>`);
 });
 
 app.post('/generate', (req, res) => {
-  const days = parseInt(req.body.days) || 30;
-  const expiry = new Date(Date.now() + days * 86400000)
-    .toISOString().split('T')[0];
+  const name = String(req.body.name || 'KEY')
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '')
+    .toUpperCase();
+
+  const days = Math.max(0, parseInt(req.body.days) || 0);
+  const hours = Math.max(0, Math.min(23, parseInt(req.body.hours) || 0));
+
+  const expiry = new Date(
+    Date.now() +
+    days * 86400000 +
+    hours * 3600000
+  ).toISOString();
+
+  const key = name + '-' +
+    crypto.randomBytes(4).toString('hex').toUpperCase();
 
   keys.push({
-    key: 'KEY-' + crypto.randomBytes(8).toString('hex').toUpperCase(),
+    key,
+    name,
     expiry,
     active: true
   });
@@ -65,18 +84,19 @@ app.post('/generate', (req, res) => {
 
 app.post('/api/verify-key', (req, res) => {
   const key = String(req.body.key || '').trim();
-  const today = new Date().toISOString().split('T')[0];
+  const now = Date.now();
 
   const found = keys.find(k =>
     k.key === key &&
     k.active === true &&
-    k.expiry >= today
+    new Date(k.expiry).getTime() >= now
   );
 
   if (found) {
     return res.json({
       success: true,
       message: 'Key valid',
+      name: found.name,
       expiry: found.expiry
     });
   }
@@ -87,7 +107,8 @@ app.post('/api/verify-key', (req, res) => {
   });
 });
 
-app.get('/api/debug-keys',(req,res)=>res.json(keys));
+app.get('/api/debug-keys', (req, res) => res.json(keys));
+
 app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
   console.log('Admin Panel running on http://localhost:3000');
 });
