@@ -88,6 +88,6 @@ app.post('/api/verify-key', (req, res) => {
 });
 
 app.get('/api/debug-keys',(req,res)=>res.json(keys));
-app.listen(3000, '127.0.0.1', () => {
+app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
   console.log('Admin Panel running on http://localhost:3000');
 });
